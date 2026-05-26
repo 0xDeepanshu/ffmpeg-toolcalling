@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# generated output
+/generated/
+
+# test assets
+/test-assets/*.mp4
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Agent Offline
 
-## Getting Started
+Lightweight offline autonomous AI worker platform powered by [Next.js](https://nextjs.org) and a local OpenAI-compatible AI server (LM Studio).
 
-First, run the development server:
+No cloud AI providers. No LangChain. No heavy frameworks. Runs entirely offline.
+
+## Architecture
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── chat/route.ts    POST /api/chat       → proxy to LM Studio
+│   │   └── models/route.ts  GET  /api/models     → proxy to LM Studio
+│   ├── layout.tsx
+│   ├── page.tsx             main UI
+│   └── globals.css
+├── components/
+│   ├── ModelSelector.tsx     dropdown + manual model name input
+│   ├── PromptInput.tsx       auto-resizing textarea + send button
+│   ├── ResponseViewer.tsx    response display with token usage + copy
+│   ├── LoadingIndicator.tsx
+│   └── ErrorDisplay.tsx
+├── hooks/
+│   ├── useChat.ts            prompt/response/loading/error state
+│   └── useModels.ts          model list + manual model entry state
+├── lib/
+│   ├── env.ts                environment configuration
+│   ├── errors.ts             typed error classes (AiError, NetworkError, TimeoutError)
+│   └── fetch.ts              reusable fetch wrapper with auth, timeout, error handling
+├── services/
+│   ├── ai.ts                 sendChatMessage() → POST /v1/chat/completions
+│   └── models.ts             model fetch with 3 fallback strategies
+└── types/
+    ├── ai.ts                 OpenAI-compatible API types
+    └── api.ts                API route response envelope types
+```
+
+## Prerequisites
+
+- Node.js 20+
+- [LM Studio](https://lmstudio.ai/) running locally with an LLM loaded
+
+## Setup
+
+```bash
+npm install
+```
+
+Copy the environment configuration:
+
+```env
+AI_BASE_URL=http://127.0.0.1:1234
+AI_API_TOKEN=                         # Get this from LM Studio → Developer → API Server
+AI_REQUEST_TIMEOUT_MS=120000
+DEFAULT_TEMPERATURE=0.7
+DEFAULT_MAX_TOKENS=4096
+```
+
+### Getting your LM Studio API token
+
+1. Open LM Studio
+2. Go to the **Developer** tab
+3. Under **API Server**, copy the token
+4. Set `AI_API_TOKEN` in `.env.local`
+
+## Running
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Select or type a model name
+2. Enter a prompt
+3. Send with Enter (Shift+Enter for newline)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Model Detection
 
-## Learn More
+The app tries three strategies to detect available models:
 
-To learn more about Next.js, take a look at the following resources:
+1. **OpenAI `GET /v1/models`** — standard endpoint
+2. **LM Studio `GET /api/v1/models`** — parses LM Studio's own API format
+3. **Extracts loaded model** — finds the model with `loaded: true` in the LM Studio response
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+If none succeed, a manual text input appears so you can type the model name directly.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Internal API
 
-## Deploy on Vercel
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/chat` | POST | Send a prompt to the loaded model |
+| `/api/models` | GET | List available models from LM Studio |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Both return `{ success: true, data: ... }` on success or `{ success: false, error: { code, message } }` on failure.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Design Principles
+
+- **No database** — stateless, all state lives in the browser
+- **Server-side API routes** — LM Studio is only called from the server
+- **Typed everywhere** — full TypeScript coverage
+- **Modular services** — swap LM Studio for any OpenAI-compatible endpoint
+- **Graceful degradation** — manual model entry when auto-detection fails
+
+## Future
+
+This foundation is designed to support local task execution, file generation, ERC-8004 decentralized AI job assignment, browser automation, and autonomous workflows — none of which are implemented yet.
